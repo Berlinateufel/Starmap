@@ -10,7 +10,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
         :root { --hex-size: 26px; }
         body { margin:0; padding:0; background:#000; color:#a0d8ff; font-family:'Orbitron',sans-serif; height:100vh; display:flex; overflow:hidden; }
-        #sidebar { width:180px; background:rgba(0,20,40,0.98); border-right:2px solid #00aaff; padding:10px; overflow-y:auto; }
+        #sidebar { width:190px; background:rgba(0,20,40,0.98); border-right:2px solid #00aaff; padding:10px; overflow-y:auto; }
         .hex-grid { display:grid; grid-template-columns:repeat(155, calc(var(--hex-size)*1.732)); gap:2px; width:max-content; }
         .hex { position:relative; width:var(--hex-size); height:calc(var(--hex-size)*1.1547); background:rgba(20,30,55,0.9);
                clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%); border:1px solid rgba(0,170,255,0.5);
@@ -21,11 +21,11 @@
 <body>
     <div id="sidebar">
         <h3>📜 Legende</h3>
-        <div id="legendContainer"></div>
+        <div id="legend"></div>
     </div>
 
     <div style="flex:1; display:flex; flex-direction:column;">
-        <header style="background:rgba(0,20,40,0.98); padding:10px; border-bottom:2px solid #00aaff;">
+        <header style="background:rgba(0,20,40,0.98); padding:10px; border-bottom:2px solid #00aaff; display:flex; justify-content:space-between;">
             <h2>Per Regna — Sternenkarte (155×80) <span style="color:#00ff00;">● LIVE</span></h2>
         </header>
         <div style="flex:1; overflow:auto; padding:20px; background:#05050f;" id="mapWrapper">
@@ -50,13 +50,24 @@
 
         let hexData = {};
 
-        const colors = [
+        const colorDefinitions = [
             {id:0, name:"Eigen", color:"#00c850"},
             {id:1, name:"Feind", color:"#dc2828"},
             {id:2, name:"Blau", color:"#2878dc"},
             {id:3, name:"Lila", color:"#b43cdc"},
-            {id:4, name:"Orange", color:"#f08c14"}
+            {id:4, name:"Orange", color:"#f08c14"},
+            {id:5, name:"Türkis", color:"#00c8c8"}
         ];
+
+        function generateLegend() {
+            const container = document.getElementById('legend');
+            container.innerHTML = colorDefinitions.map(c => 
+                `<div style="margin:4px 0; display:flex; align-items:center; gap:8px;">
+                    <div style="width:20px;height:20px;background:${c.color};border:1px solid white;"></div>
+                    <span>${c.id} - ${c.name}</span>
+                </div>`
+            ).join('');
+        }
 
         function generateHexGrid() {
             const grid = document.getElementById('hexGrid');
@@ -67,52 +78,43 @@
                     hex.className = 'hex';
                     const id = `h${row}-${col}`;
                     hex.dataset.id = id;
-                    hex.innerHTML = `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:8px;color:#88ccff;">${col+1}</span>`;
+                    hex.innerHTML = `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:7.5px;color:#88ccff;">${col+1}</span>`;
                     hex.onclick = () => editHex(id, hex);
                     grid.appendChild(hex);
                 }
             }
         }
 
-        function applyAllColors() {
+        function editHex(id, hexElement) {
+            const data = hexData[id] || {};
+            let colorId = prompt(`Farbe für ${id.replace('h','')} (0-5):\n0=Eigen\n1=Feind\n2=Blau\n3=Lila\n4=Orange\n5=Türkis\n\nAktuell: ${data.color || 0}`, data.color || 0);
+            
+            if (colorId === null) return;
+            colorId = parseInt(colorId);
+            
+            hexData[id] = { color: colorId };
+            mapRef.child(id).set({ color: colorId });
+            applyColor(hexElement, colorId);
+        }
+
+        function applyColor(hex, colorId) {
+            const def = colorDefinitions[colorId];
+            if (def) hex.style.background = def.color + "dd";
+        }
+
+        // Initial Load + Live Updates
+        mapRef.on('value', (snapshot) => {
+            hexData = snapshot.val() || {};
             document.querySelectorAll('.hex').forEach(hex => {
                 const id = hex.dataset.id;
-                if (hexData[id] && hexData[id].color !== undefined) {
-                    hex.style.background = colors[hexData[id].color].color + "dd";
-                }
+                if (hexData[id]) applyColor(hex, hexData[id].color);
             });
-        }
-
-        function editHex(id, hexElement) {
-            const current = hexData[id] ? hexData[id].color : 0;
-            const input = prompt(`Farbe 0-4 für ${id.replace('h','')}:\n0=Eigen 1=Feind 2=Blau 3=Lila 4=Orange`, current);
-            if (input === null) return;
-            
-            const newColor = parseInt(input);
-            if (isNaN(newColor) || newColor < 0 || newColor > 4) return alert("Nur 0 bis 4!");
-
-            hexData[id] = { color: newColor };
-            mapRef.child(id).set({ color: newColor });
-            hexElement.style.background = colors[newColor].color + "dd";
-        }
-
-        // Daten beim Laden holen
-        mapRef.once('value', (snapshot) => {
-            hexData = snapshot.val() || {};
-            applyAllColors();
-            console.log("Daten geladen:", Object.keys(hexData).length, "Hexes");
         });
 
-        // Live-Änderungen von anderen
-        mapRef.on('child_changed', (snapshot) => {
-            const id = snapshot.key;
-            const data = snapshot.val();
-            hexData[id] = data;
-            const hex = document.querySelector(`[data-id="${id}"]`);
-            if (hex) hex.style.background = colors[data.color].color + "dd";
-        });
-
-        window.onload = generateHexGrid;
+        window.onload = () => {
+            generateLegend();
+            generateHexGrid();
+        };
     </script>
 </body>
 </html>
