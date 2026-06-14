@@ -3,587 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Per Regna - Sternenkarte / Star Map (155×80)</title>
+    <title>Per Regna - Sternenkarte (Live)</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-    
-        :root { --hex-size: 28px; }
-    
-        body {
-            margin: 0; padding: 0;
-            background: #000;
-            color: #a0d8ff;
-            font-family: 'Orbitron', sans-serif;
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
-        }
-    
-        #sidebar {
-            width: 130px;
-            background: rgba(0, 20, 40, 0.98);
-            border-right: 2px solid #00aaff;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            padding: 8px;
-            gap: 12px;
-        }
-    
-        .legend-title {
-            font-size: 15px;
-            color: #00ddff;
-            margin: 0 0 6px 0;
-            border-bottom: 1px solid #00aaff;
-            padding-bottom: 5px;
-            text-align: center;
-        }
-    
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 5px;
-            padding: 3px 4px;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
-        .legend-item:hover {
-            background: rgba(0, 170, 255, 0.12);
-        }
-    
-        .legend-color {
-            width: 22px;
-            height: 22px;
-            border: 2px solid #a0d8ff;
-            border-radius: 4px;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-    
-        .legend-name {
-            flex: 1;
-            background: #002244;
-            border: 1px solid #00aaff;
-            color: #a0d8ff;
-            padding: 4px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-    
-        #main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-    
-        header {
-            background: rgba(0, 20, 40, 0.98);
-            padding: 8px 12px;
-            border-bottom: 2px solid #00aaff;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            z-index: 100;
-            min-height: 54px;
-        }
-    
-        .title {
-            font-size: 18px;
-            font-weight: 700;
-        }
-    
-        .map-wrapper {
-            position: relative;
-            flex: 1;
-            overflow: auto;
-            padding: 40px 25px 25px 60px;
-            background: #05050f;
-        }
-    
-        .coords-top, .coords-left {
-            position: absolute;
-            z-index: 30;
-            font-size: 10px;
-            color: #77aaff;
-            font-weight: bold;
-        }
-        .coords-top { top: 10px; left: 60px; display: flex; }
-        .coords-left { left: 6px; top: 48px; display: flex; flex-direction: column; text-align: right; }
-    
-        .hex-grid {
-            display: grid;
-            grid-template-columns: repeat(155, calc(var(--hex-size) * 1.732));
-            gap: 2px;
-            width: max-content;
-        }
-    
-        .hex {
-            position: relative;
-            width: var(--hex-size);
-            height: calc(var(--hex-size) * 1.1547);
-            background: rgba(20, 30, 55, 0.9);
-            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-            border: 1px solid rgba(0, 170, 255, 0.5);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-    
-        .hex:hover {
-            transform: scale(1.25);
-            z-index: 25;
-            box-shadow: 0 0 22px #00ddff;
-        }
-        .hex.highlight {
-            border: 3px solid #ffff00 !important;
-            box-shadow: 0 0 25px #ffff00, 0 0 45px #ffaa00 !important;
-            z-index: 40;
-            transform: scale(1.2);
-        }
-    
-        .coord {
-            position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
-            font-size: 8px; color: #88ccff; text-shadow: 0 0 4px #000;
-            font-weight: bold; z-index: 2;
-        }
-        .content {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            text-align: center; font-size: 7.5px; line-height: 1.05; width: 92%;
-            text-shadow: 0 0 4px black; pointer-events: none;
-        }
-    
-        .modal {
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.94);
-            z-index: 1000; align-items: center; justify-content: center;
-        }
-        .modal-content {
-            background: #001122;
-            padding: 18px;
-            border: 2px solid #00aaff;
-            border-radius: 10px;
-            width: 400px;
-            max-height: 88vh;
-            overflow-y: auto;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 5px 7px;
-            margin: 4px 0;
-            background: #002244;
-            border: 1px solid #00aaff;
-            color: #a0d8ff;
-            border-radius: 4px;
-            font-size: 13.5px;
-        }
-        .planet-input {
-            display: flex;
-            gap: 5px;
-            margin: 4px 0;
-            align-items: center;
-        }
-        .planet-input button {
-            width: 24px;
-            height: 24px;
-            font-size: 15px;
-        }
-
-        .lang-switch {
-            display: flex;
-            gap: 4px;
-        }
-        .lang-btn {
-            padding: 4px 8px;
-            font-size: 12px;
-            background: #002244;
-            border: 1px solid #00aaff;
-            color: #a0d8ff;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        .lang-btn.active {
-            background: #00aaff;
-            color: #000;
-            font-weight: bold;
-        }
+        :root { --hex-size: 26px; }
+        body { margin:0; padding:0; background:#000; color:#a0d8ff; font-family:'Orbitron',sans-serif; height:100vh; display:flex; overflow:hidden; }
+        #sidebar { width:180px; background:rgba(0,20,40,0.98); border-right:2px solid #00aaff; padding:10px; overflow-y:auto; }
+        .hex-grid { display:grid; grid-template-columns:repeat(155, calc(var(--hex-size)*1.732)); gap:2px; width:max-content; }
+        .hex { position:relative; width:var(--hex-size); height:calc(var(--hex-size)*1.1547); background:rgba(20,30,55,0.9);
+               clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%); border:1px solid rgba(0,170,255,0.5);
+               cursor:pointer; transition:all 0.2s; }
+        .hex:hover { transform:scale(1.25); z-index:20; box-shadow:0 0 20px #00ddff; }
+        .highlight { border:3px solid yellow !important; box-shadow:0 0 30px yellow !important; }
     </style>
 </head>
 <body>
-    <!-- SIDEBAR -->
     <div id="sidebar">
-        <div class="legend-title" id="legendTitle">📜 Legende / Legend</div>
+        <h3>📜 Legende</h3>
         <div id="legendContainer"></div>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div id="main-content">
-        <header>
-            <div class="title" id="mainTitle">Per Regna — Sternenkarte (155×80) / Star Map (155×80)</div>
-            
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <div style="display:flex; align-items:center; gap:5px; background:rgba(0,30,60,0.6); padding:5px 8px; border-radius:6px; border:1px solid #00aaff;">
-                    <span style="color:#77aaff;">🔍</span>
-                    <input type="number" id="searchX" placeholder="X" min="1" max="155" style="width:58px; text-align:center; font-size:14px;">
-                    <span style="color:#77aaff; font-weight:bold;">–</span>
-                    <input type="number" id="searchY" placeholder="Y" min="0" max="79" style="width:58px; text-align:center; font-size:14px;">
-                    <button onclick="searchHex()" id="searchBtn">Suchen / Search</button>
-                </div>
-
-                <button onclick="saveMap()" id="saveBtn">💾 Speichern / Save</button>
-                <button onclick="loadMap()" id="loadBtn">📂 Laden / Load</button>
-                <button onclick="clearMap()" id="clearBtn">🗑️ Löschen / Clear</button>
-                
-                <span id="zoomLabel">Zoom:</span>
-                <button onclick="changeSize(-3)">–</button> 
-                <button onclick="changeSize(3)">+</button>
-
-                <div class="lang-switch">
-                    <button class="lang-btn active" onclick="setLanguage('de')" id="langDe">DE</button>
-                    <button class="lang-btn" onclick="setLanguage('en')" id="langEn">EN</button>
-                </div>
-            </div>
+    <div style="flex:1; display:flex; flex-direction:column;">
+        <header style="background:rgba(0,20,40,0.98); padding:10px; border-bottom:2px solid #00aaff; display:flex; justify-content:space-between; align-items:center;">
+            <h2>Per Regna — Sternenkarte (155×80) <span style="color:#00ff00; font-size:14px;">● LIVE</span></h2>
         </header>
-
-        <div class="map-wrapper" id="mapWrapper">
-            <div class="coords-top" id="topCoords"></div>
-            <div class="coords-left" id="leftCoords"></div>
+        <div style="flex:1; overflow:auto; padding:20px; background:#05050f;" id="mapWrapper">
             <div class="hex-grid" id="hexGrid"></div>
         </div>
     </div>
 
-    <!-- MODAL -->
-    <div class="modal" id="editModal" onclick="if(event.target === this) closeModal()">
-        <div class="modal-content" onclick="event.stopImmediatePropagation()">
-            <h2 id="modalTitle">Hexagon <span id="modalCoord" style="color:#00ddff; font-size:17px;"></span></h2>
-          
-            <label id="colorLabel">Hex-Farbe / Hex Color:</label>
-            <select id="hexColor"></select>
-        
-            <label style="margin-top:10px;" id="planetsLabel">Planeten / Planets:</label>
-            <div id="planetsContainer"></div>
-            <button onclick="addPlanetField()" style="margin:6px 0; width:auto; padding:5px 10px;" id="addPlanetBtn">+ Planet / + Planet</button>
-        
-            <label style="margin-top:10px;" id="notesLabel">Notizen / Notes:</label>
-            <textarea id="sysNotes" rows="4" placeholder="Notizen / Notes..."></textarea>
-        
-            <div style="margin-top:18px; display:flex; gap:8px; justify-content:flex-end;">
-                <button onclick="closeModal()" style="background:#444; padding:7px 14px;" id="closeBtn">Schließen / Close</button>
-                <button onclick="saveHexData()" style="background:#006600; padding:7px 14px;" id="saveHexBtn">Speichern / Save</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        let hexData = {};
-        let hexSize = 28;
-        let currentHighlight = null;
-        let currentLang = 'de';
-
-        const translations = {
-            de: {
-                title: "Per Regna — Sternenkarte (155×80)",
-                legend: "📜 Legende",
-                search: "Suchen",
-                save: "💾 Speichern",
-                load: "📂 Laden",
-                clear: "🗑️ Löschen",
-                zoom: "Zoom:",
-                hexColor: "Hex-Farbe:",
-                planets: "Planeten:",
-                notes: "Notizen:",
-                close: "Schließen",
-                saveHex: "Speichern",
-                addPlanet: "+ Planet"
-            },
-            en: {
-                title: "Per Regna — Star Map (155×80)",
-                legend: "📜 Legend",
-                search: "Search",
-                save: "💾 Save",
-                load: "📂 Load",
-                clear: "🗑️ Clear",
-                zoom: "Zoom:",
-                hexColor: "Hex Color:",
-                planets: "Planets:",
-                notes: "Notes:",
-                close: "Close",
-                saveHex: "Save",
-                addPlanet: "+ Planet"
-            }
+        const firebaseConfig = {
+          apiKey: "AIzaSyC14sG85fPu0DazZwcnmXmSmwjz3q9SBdU",
+          authDomain: "starmap-de973.firebaseapp.com",
+          databaseURL: "https://starmap-de973-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "starmap-de973",
+          storageBucket: "starmap-de973.firebasestorage.app",
+          messagingSenderId: "1030470652779",
+          appId: "1:1030470652779:web:46b2e14050ea45b39cf22e"
         };
 
-        let colorDefinitions = [
-            {id: 0, name: "Eigen / Own", color: "#00c850", border: "#00ff99"},
-            {id: 1, name: "Feind / Enemy", color: "#dc2828", border: "#ff5555"},
-            {id: 2, name: "Blau / Blue", color: "#2878dc", border: "#5599ff"},
-            {id: 3, name: "Lila / Purple", color: "#b43cdc", border: "#cc88ff"},
-            {id: 4, name: "Orange", color: "#f08c14", border: "#ffbb44"},
-            {id: 5, name: "Türkis / Turquoise", color: "#00c8c8", border: "#44ffff"},
-            {id: 6, name: "Pink", color: "#dc3c8c", border: "#ff6699"},
-            {id: 7, name: "Gelb / Yellow", color: "#c8b428", border: "#dddd55"},
-            {id: 8, name: "Violett / Violet", color: "#783cc8", border: "#aa77ff"},
-            {id: 9, name: "Hellorange / Light Orange", color: "#f06e3c", border: "#ff9966"},
-            {id: 10, name: "Mint", color: "#3cc878", border: "#66dd99"},
-            {id: 11, name: "Neutral", color: "#b4b4b4", border: "#eeeeee"}
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const mapRef = db.ref('starmap');
+
+        let hexData = {};
+
+        const colors = [
+            {id:0, name:"Eigen", color:"#00c850"},
+            {id:1, name:"Feind", color:"#dc2828"},
+            {id:2, name:"Blau", color:"#2878dc"},
+            {id:3, name:"Lila", color:"#b43cdc"},
+            {id:4, name:"Orange", color:"#f08c14"}
         ];
-
-        function setLanguage(lang) {
-            currentLang = lang;
-            document.getElementById('langDe').classList.toggle('active', lang === 'de');
-            document.getElementById('langEn').classList.toggle('active', lang === 'en');
-            
-            document.getElementById('mainTitle').textContent = translations[lang].title;
-            document.getElementById('legendTitle').textContent = translations[lang].legend;
-            document.getElementById('searchBtn').textContent = translations[lang].search;
-            document.getElementById('saveBtn').textContent = translations[lang].save;
-            document.getElementById('loadBtn').textContent = translations[lang].load;
-            document.getElementById('clearBtn').textContent = translations[lang].clear;
-            document.getElementById('zoomLabel').textContent = translations[lang].zoom;
-            document.getElementById('colorLabel').textContent = translations[lang].hexColor;
-            document.getElementById('planetsLabel').textContent = translations[lang].planets;
-            document.getElementById('notesLabel').textContent = translations[lang].notes;
-            document.getElementById('closeBtn').textContent = translations[lang].close;
-            document.getElementById('saveHexBtn').textContent = translations[lang].saveHex;
-            document.getElementById('addPlanetBtn').textContent = translations[lang].addPlanet;
-        }
-
-        function updateColorStyles() {
-            document.querySelectorAll('style.dynamic-color').forEach(s => s.remove());
-            colorDefinitions.forEach(def => {
-                const style = document.createElement('style');
-                style.className = 'dynamic-color';
-                style.innerHTML = `.hex.c${def.id} { background: rgba(${hexToRgb(def.color)}, 0.95) !important; border-color: ${def.border} !important; }`;
-                document.head.appendChild(style);
-            });
-        }
-
-        function hexToRgb(hex) {
-            const r = parseInt(hex.slice(1,3),16);
-            const g = parseInt(hex.slice(3,5),16);
-            const b = parseInt(hex.slice(5,7),16);
-            return `${r}, ${g}, ${b}`;
-        }
-
-        function generateLegend() {
-            const container = document.getElementById('legendContainer');
-            container.innerHTML = '';
-            colorDefinitions.forEach(def => {
-                const div = document.createElement('div');
-                div.className = 'legend-item';
-                div.innerHTML = `
-                    <div class="legend-color" style="background:${def.color}" onclick="editLegendColor(${def.id})"></div>
-                    <input type="text" class="legend-name" value="${def.name}" onchange="updateLegendName(${def.id}, this.value)">
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function editLegendColor(id) {
-            const def = colorDefinitions.find(d => d.id === id);
-            const newColor = prompt(currentLang === 'de' ? "Neue Farbe (#RRGGBB):" : "New color (#RRGGBB):", def.color);
-            if (newColor && /^#[0-9A-Fa-f]{6}$/.test(newColor)) {
-                def.color = newColor;
-                def.border = newColor;
-                generateLegend();
-                updateColorStyles();
-                generateHexGrid();
-            }
-        }
-
-        function updateLegendName(id, newName) {
-            const def = colorDefinitions.find(d => d.id === id);
-            if (def) def.name = newName.trim();
-        }
-
-        function generateCoordinates() {
-            const top = document.getElementById('topCoords');
-            top.innerHTML = '';
-            for (let col = 0; col < 155; col++) {
-                const d = document.createElement('div');
-                d.style.width = `calc(${hexSize}px * 1.732 + 2px)`;
-                d.style.textAlign = 'center';
-                d.textContent = (col + 1);
-                top.appendChild(d);
-            }
-            const left = document.getElementById('leftCoords');
-            left.innerHTML = '';
-            for (let row = 0; row < 80; row++) {
-                const d = document.createElement('div');
-                d.style.height = `calc(${hexSize}px * 1.1547 + 2px)`;
-                d.style.display = 'flex';
-                d.style.alignItems = 'center';
-                d.style.justifyContent = 'flex-end';
-                d.textContent = row;
-                left.appendChild(d);
-            }
-        }
 
         function generateHexGrid() {
             const grid = document.getElementById('hexGrid');
             grid.innerHTML = '';
-            grid.style.gridTemplateColumns = `repeat(155, calc(${hexSize}px * 1.732))`;
-        
             for (let row = 0; row < 80; row++) {
                 for (let col = 0; col < 155; col++) {
                     const hex = document.createElement('div');
                     hex.className = 'hex';
-                    if (row % 2 === 1) hex.style.marginLeft = `${hexSize * 0.866}px`;
                     const id = `h${row}-${col}`;
                     hex.dataset.id = id;
-                    const coordDiv = document.createElement('div');
-                    coordDiv.className = 'coord';
-                    coordDiv.textContent = `${col+1}-${row}`;
-                    hex.appendChild(coordDiv);
-                    const content = document.createElement('div');
-                    content.className = 'content';
-                    hex.appendChild(content);
-                    hex.addEventListener('click', () => editHex(id, hex));
+                    hex.innerHTML = `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:8px;color:#88ccff;pointer-events:none;">${col+1}</span>`;
+                    hex.onclick = () => editHex(id, hex);
                     grid.appendChild(hex);
-                    if (hexData[id]) applyHexStyle(hex, hexData[id]);
                 }
             }
         }
 
-        function applyHexStyle(hex, data) {
-            for (let i = 0; i <= 11; i++) hex.classList.remove(`c${i}`);
-            if (data.color !== undefined) hex.classList.add(`c${data.color}`);
-        }
-
-        function editHex(id, hexElement) {
-            const modal = document.getElementById('editModal');
+        function editHex(id, element) {
             const data = hexData[id] || {};
-            document.getElementById('modalCoord').textContent = `${id.replace('h','').replace('-',' - ')}`;
-           
-            const select = document.getElementById('hexColor');
-            select.innerHTML = '';
-            colorDefinitions.forEach(def => {
-                const opt = document.createElement('option');
-                opt.value = def.id;
-                opt.textContent = `${def.id} - ${def.name}`;
-                select.appendChild(opt);
+            const colorId = prompt("Farbe (0-4):\n0=Eigen\n1=Feind\n2=Blau\n3=Lila\n4=Orange\n\nAktuell: " + (data.color || 0), data.color || 0);
+            if (colorId === null) return;
+            
+            hexData[id] = { color: parseInt(colorId) };
+            mapRef.child(id).set(hexData[id]);
+            updateHexStyle(element, parseInt(colorId));
+        }
+
+        function updateHexStyle(hex, colorId) {
+            hex.style.background = colors[colorId] ? colors[colorId].color + "cc" : "rgba(20,30,55,0.9)";
+        }
+
+        // Live Sync
+        mapRef.on('value', (snapshot) => {
+            hexData = snapshot.val() || {};
+            document.querySelectorAll('.hex').forEach(hex => {
+                const id = hex.dataset.id;
+                if (hexData[id]) {
+                    updateHexStyle(hex, hexData[id].color);
+                }
             });
-            select.value = data.color !== undefined ? data.color : '0';
-            document.getElementById('sysNotes').value = data.notes || '';
-           
-            const container = document.getElementById('planetsContainer');
-            container.innerHTML = '';
-            if (data.planets && data.planets.length > 0) {
-                data.planets.forEach(p => addPlanetField(p.name, p.color));
-            } else {
-                addPlanetField();
-            }
-            modal.dataset.currentId = id;
-            modal.style.display = 'flex';
-        }
-
-        function addPlanetField(name = '', color = '0') {
-            const container = document.getElementById('planetsContainer');
-            const div = document.createElement('div');
-            div.className = 'planet-input';
-          
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = name;
-            input.placeholder = currentLang === 'de' ? 'Planet' : 'Planet';
-          
-            const select = document.createElement('select');
-            colorDefinitions.forEach(def => {
-                const opt = document.createElement('option');
-                opt.value = def.id;
-                opt.textContent = def.name;
-                select.appendChild(opt);
-            });
-            select.value = color;
-          
-            const removeBtn = document.createElement('button');
-            removeBtn.textContent = '×';
-            removeBtn.onclick = () => div.remove();
-          
-            div.appendChild(input);
-            div.appendChild(select);
-            div.appendChild(removeBtn);
-            container.appendChild(div);
-        }
-
-        function saveHexData() {
-            const modal = document.getElementById('editModal');
-            const id = modal.dataset.currentId;
-            if (!id) return;
-           
-            hexData[id] = hexData[id] || {};
-            hexData[id].color = parseInt(document.getElementById('hexColor').value);
-            hexData[id].notes = document.getElementById('sysNotes').value.trim();
-          
-            hexData[id].planets = Array.from(document.querySelectorAll('#planetsContainer .planet-input')).map(div => {
-                const input = div.querySelector('input');
-                const select = div.querySelector('select');
-                return { name: input.value.trim(), color: parseInt(select.value) };
-            }).filter(p => p.name);
-           
-            const hex = document.querySelector(`[data-id="${id}"]`);
-            if (hex) applyHexStyle(hex, hexData[id]);
-            closeModal();
-        }
-
-        function closeModal() {
-            document.getElementById('editModal').style.display = 'none';
-        }
-
-        function changeSize(delta) {
-            hexSize = Math.max(20, Math.min(45, hexSize + delta));
-            generateCoordinates();
-            generateHexGrid();
-        }
-
-        function searchHex() {
-            const x = parseInt(document.getElementById('searchX').value);
-            const y = parseInt(document.getElementById('searchY').value);
-            if (isNaN(x) || isNaN(y)) return alert(currentLang === 'de' ? "Bitte X und Y eingeben!" : "Please enter X and Y!");
-            const col = x - 1;
-            const row = y;
-            const id = `h${row}-${col}`;
-            const hex = document.querySelector(`[data-id="${id}"]`);
-            if (hex) {
-                if (currentHighlight) currentHighlight.classList.remove('highlight');
-                hex.classList.add('highlight');
-                currentHighlight = hex;
-                hex.scrollIntoView({behavior: "smooth", block: "center", inline: "center"});
-                setTimeout(() => {
-                    if (currentHighlight === hex) hex.classList.remove('highlight');
-                    currentHighlight = null;
-                }, 5000);
-            } else {
-                alert(currentLang === 'de' ? "Hexagon nicht gefunden!" : "Hexagon not found!");
-            }
-        }
-
-        function saveMap() { 
-            localStorage.setItem('perRegnaMap', JSON.stringify(hexData)); 
-            alert(currentLang === 'de' ? 'Gespeichert!' : 'Saved!'); 
-        }
-        function loadMap() {
-            const saved = localStorage.getItem('perRegnaMap');
-            if (saved) { 
-                hexData = JSON.parse(saved); 
-                generateHexGrid(); 
-                alert(currentLang === 'de' ? 'Geladen!' : 'Loaded!'); 
-            }
-        }
-        function clearMap() {
-            if (confirm(currentLang === 'de' ? 'Karte wirklich zurücksetzen?' : 'Really reset the map?')) { 
-                hexData = {}; 
-                generateHexGrid(); 
-            }
-        }
+        });
 
         window.onload = () => {
-            updateColorStyles();
-            generateLegend();
-            generateCoordinates();
             generateHexGrid();
-            setLanguage('de');
         };
     </script>
 </body>
